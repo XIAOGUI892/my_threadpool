@@ -23,7 +23,7 @@ private:
 
 int main() {
 	ThreadPool pool;
-	//pool.setPoolMode(PoolMode::MODE_CACHED);
+	pool.setPoolMode(PoolMode::MODE_CACHED);
 	pool.start(4);
 	std::cout << "hihao" << std::endl;
 	Result result1 = pool.submitTask(std::make_shared<MyTask>(1, 100000));

@@ -62,35 +62,27 @@ void ThreadPool::threadFunc(int threadId) {
 			auto lastime = std::chrono::high_resolution_clock().now();
 			std::unique_lock<std::mutex>lock(mtx_);
 
-			if (poolMode_ == PoolMode::MODE_FIXED) {
-				std::unique_lock<std::mutex>lock(mtx_);
+			if (poolMode_ == PoolMode::MODE_CACHED && !notEmpty_.wait_for(lock, std::chrono::seconds(1), [&]() { return taskQueSize_ > 0; })) {
+				auto now = std::chrono::high_resolution_clock().now();
+				auto dur = std::chrono::duration_cast<std::chrono::seconds>(now - lastime);
+				if (dur.count() >= THREAD_MAX_IDLE_TIME && curThreadSize_ > initThreadSize_) {
+					threads_.erase(threadId);
+					curThreadSize_--;
+					idleThreadSize_--;
+					std::cout << "threadid: " << std::this_thread::get_id() << "exit! " << std::endl;
+					return;
+
+				}
+			}
+			else {
+				//std::unique_lock<std::mutex>lock(mtx_);
 				notEmpty_.wait(lock, [&]() {return taskQueSize_ > 0; });
 				task = taskQue_.front();
 				taskQue_.pop();
 				taskQueSize_--;
 				notFull_.notify_all();
 			}
-			else {
-				if (!notEmpty_.wait_for(lock, std::chrono::seconds(1), [&]() { return taskQueSize_ > 0; })) {
-					auto now = std::chrono::high_resolution_clock().now();
-					auto dur = std::chrono::duration_cast<std::chrono::seconds>(now - lastime);
-					if (dur.count() >= THREAD_MAX_IDLE_TIME && curThreadSize_ > initThreadSize_) {
-						threads_.erase(threadId);
-						curThreadSize_--;
-						idleThreadSize_--;
-						std::cout << "threadid: " << std::this_thread::get_id() << "exit! " << std::endl;
-						return;
-
-					}
-				}
-				else {
-					task = taskQue_.front();
-					taskQue_.pop();
-					taskQueSize_--;
-					notFull_.notify_all();
-				}
-
-			}
+	
 		}
 		idleThreadSize_--;
 		task->exec();
