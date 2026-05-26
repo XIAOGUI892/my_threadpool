@@ -6,6 +6,7 @@
 #include <functional>
 #include<iostream>
 #include<vector>
+#include<unordered_map>
 class Semphore {
 public:
 	Semphore(int count = 0):count_(count)
@@ -99,14 +100,20 @@ private:
 };
 class Thread {
 public:
-	using ThreadFunc = std::function<void()>;
+	using ThreadFunc = std::function<void(int)>;
 	Thread(ThreadFunc func);
 	virtual ~Thread() = default;
 	Thread(const Thread&) = delete;
 	Thread& operator=(const Thread&) = delete;
 	void start();
+	int getId() const {
+		return id_;
+	}
 private:
 	ThreadFunc func_;
+	int id_;
+	static int generatedId;
+
 };
 
 
@@ -126,17 +133,36 @@ public:
 		return taskQueSize_;
 	}
 	void setPoolMode(PoolMode mode = PoolMode::MODE_FIXED);
-	void threadFunc();
+	void threadFunc(int threadId);
 	PoolMode getPoolMode() const {
 		return poolMode_;
 	}
 	Result submitTask(std::shared_ptr<Task>task);
+
+	PoolMode getPoolMode() {
+		return poolMode_;
+	}
+
+	bool isPoolRunning() const {
+		return isPoolRunning_;
+	}
+
+
+
 private:
 	std::queue<std::shared_ptr<Task>>taskQue_;
-	std::vector <std::unique_ptr<Thread>>threads_;
+	std::unordered_map<int, std::unique_ptr<Thread>> threads_;
 	int taskQueSize_;
 	int taskMaxSize_;
 	int threadSize_;
+
+	std::atomic_int idleThreadSize_;
+	int threadMaxSize_;
+	int curThreadSize_;
+	int initThreadSize_;
+
+	bool isPoolRunning_;
+
 	PoolMode poolMode_;
 	std::condition_variable notFull_;
 	std::condition_variable notEmpty_;
