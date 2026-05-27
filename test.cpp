@@ -44,4 +44,5 @@ int main() {
 	std::cout << result7.get().cast_<long long>() << std::endl;
 	std::cout << result8.get().cast_<long long>() << std::endl;
 	getchar();
+
 }

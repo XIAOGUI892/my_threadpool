@@ -127,7 +127,7 @@ enum class PoolMode {
 class ThreadPool {
 public:
 	ThreadPool();
-	~ThreadPool() = default;
+	~ThreadPool();
 	void start(int threadSize);
 	int getTaskQueSize()const {
 		return taskQueSize_;
@@ -138,10 +138,6 @@ public:
 		return poolMode_;
 	}
 	Result submitTask(std::shared_ptr<Task>task);
-
-	PoolMode getPoolMode() {
-		return poolMode_;
-	}
 
 	bool isPoolRunning() const {
 		return isPoolRunning_;
@@ -166,6 +162,7 @@ private:
 	PoolMode poolMode_;
 	std::condition_variable notFull_;
 	std::condition_variable notEmpty_;
+	std::condition_variable exitCond_;
 	std::mutex mtx_;
 
 };

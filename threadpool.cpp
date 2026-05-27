@@ -59,9 +59,19 @@ void ThreadPool::threadFunc(int threadId) {
 	std::shared_ptr<Task> task;
 	while (isPoolRunning_) {
 		{
+
+			/* // wait_for 内部做的事情等价于：
+				  while (taskQueSize_ == 0) {                    // 1. 先检查条件：不满足就进入循环
+					  std::cv_status status = notEmpty_.wait_for(lock, std::chrono::seconds(1));
+					  if (status == std::cv_status::timeout) {   // 3. 超时了
+						  break;                                 //    不管条件满不满足都退出
+					  }
+				  }
+				  return taskQueSize_ > 0;                       // 5. 返回最终条件结果*/
+
+
 			auto lastime = std::chrono::high_resolution_clock().now();
 			std::unique_lock<std::mutex>lock(mtx_);
-
 			if (poolMode_ == PoolMode::MODE_CACHED && !notEmpty_.wait_for(lock, std::chrono::seconds(1), [&]() { return taskQueSize_ > 0; })) {
 				auto now = std::chrono::high_resolution_clock().now();
 				auto dur = std::chrono::duration_cast<std::chrono::seconds>(now - lastime);
@@ -73,30 +83,45 @@ void ThreadPool::threadFunc(int threadId) {
 					return;
 
 				}
+				continue;
 			}
 			else {
 				//std::unique_lock<std::mutex>lock(mtx_);
 				notEmpty_.wait(lock, [&]() {return taskQueSize_ > 0; });
 				task = taskQue_.front();
+				std::cout << "tid :" << std::this_thread::get_id() << "获取任务成功 " << std::endl;
 				taskQue_.pop();
 				taskQueSize_--;
+				if (taskQueSize_ == 0) {
+					exitCond_.notify_one();
+				}
 				notFull_.notify_all();
 			}
 	
 		}
 		idleThreadSize_--;
 		task->exec();
+		std::cout << "tid :" << std::this_thread::get_id() << "任务完成 " << std::endl;
 		idleThreadSize_++;
 
 	}
-
-	
 }
+
+ThreadPool::~ThreadPool() {
+	std::unique_lock<std::mutex>lock(mtx_);
+	notEmpty_.notify_all();
+	exitCond_.wait(lock, [&]() {return taskQue_.size() == 0; });
+	isPoolRunning_ = false;
+}
+
+
 
 
 void ThreadPool::setPoolMode(PoolMode mode) {
 	poolMode_ = mode;
 }
+
+
 
 
 
